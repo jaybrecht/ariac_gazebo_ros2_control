@@ -183,6 +183,15 @@ void GazeboRosControlPlugin::Load(gazebo::physics::ModelPtr parent, sdf::Element
     impl_->robot_description_node_ = "robot_state_publisher";  // default
   }
 
+  std::string controller_manager_name;
+  if (sdf->HasElement("controller_manager_prefix")) {
+    controller_manager_name = sdf->GetElement("controller_manager_prefix")->Get<std::string>() + "_controller_manager";
+    RCLCPP_INFO(impl_->model_nh_->get_logger(), "Found controller manager ns");
+  } else {
+    RCLCPP_ERROR(impl_->model_nh_->get_logger(), "Unable to find controller manager namespace in urdf");
+    controller_manager_name = "controller_manager";  // default
+  }
+
   // There's currently no direct way to set parameters to the plugin's node
   // So we have to parse the plugin file manually and set it to the node's context.
   auto rcl_context = impl_->model_nh_->get_node_base_interface()->get_context()->get_rcl_context();
@@ -309,12 +318,13 @@ void GazeboRosControlPlugin::Load(gazebo::physics::ModelPtr parent, sdf::Element
   impl_->executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
 
   // Create the controller manager
-  RCLCPP_INFO(impl_->model_nh_->get_logger(), "Loading controller_manager");
+  RCLCPP_INFO_STREAM(impl_->model_nh_->get_logger(), "Loading controller_manager with name: " << controller_manager_name.c_str());
+
   impl_->controller_manager_.reset(
     new controller_manager::ControllerManager(
       std::move(resource_manager_),
       impl_->executor_,
-      "controller_manager",
+      controller_manager_name,
       impl_->model_nh_->get_namespace()));
   impl_->executor_->add_node(impl_->controller_manager_);
 
